@@ -65,23 +65,24 @@ jobs:
             const securityContent = fs.readFileSync('security.txt', 'utf8');
             
             // API 키/크레딧 문제 체크
-            if (reviewContent.includes('credit') && reviewContent.includes('low') || 
-                reviewContent.includes('invalid') || 
-                reviewContent.includes('API key not set')) {
-              
+            const hasApiIssue = reviewContent.includes('API key not set') ||
+                               reviewContent.includes('invalid') ||
+                               (reviewContent.includes('credit') && reviewContent.includes('low'));
+                               
+            if (hasApiIssue) {
               const comment = `## 🤖 Claude Code Review
-
-❌ **API 키 또는 크레딧 문제**
-
-현재 상태: \`${reviewContent.split('\n')[0]}\`
-
-해결 방법:
-1. **API 키 설정**: Repository → Settings → Secrets → Actions
-2. **크레딧 확인**: console.anthropic.com에서 잔액 확인  
-3. **테스트**: 설정 후 PR 재실행
-
----
-*Powered by Claude Code*`;
+          
+          ❌ **API 키 또는 크레딧 문제**
+          
+          현재 상태: \`${reviewContent.split('\n')[0]}\`
+          
+          해결 방법:
+          1. **API 키 설정**: Repository → Settings → Secrets → Actions
+          2. **크레딧 확인**: console.anthropic.com에서 잔액 확인  
+          3. **테스트**: 설정 후 PR 재실행
+          
+          ---
+          *Powered by Claude Code*`;
 
               await github.rest.issues.createComment({
                 issue_number: context.issue.number,
@@ -96,23 +97,23 @@ jobs:
             const criticalCount = (reviewContent.match(/🔴|CRITICAL/g) || []).length;
             
             const comment = `## 🤖 Claude Code Review
-
-### 📊 분석 완료  
-- **보안 취약점**: ${criticalCount}개 발견
-- **상세 결과**: [Actions 로그](../../actions) 확인
-
-### 🚨 주요 발견사항
-${reviewContent.includes('🔴 CRITICAL') ? 
-  reviewContent.split('🔴 CRITICAL')[1]?.substring(0, 500) + '...' : 
-  '세부 내용은 Actions 로그에서 확인하세요'}
-
-### 🛡️ 권장사항
-1. 하드코딩된 크리덴셜 즉시 제거
-2. SQL 인젝션 취약점 수정  
-3. 입력 검증 로직 추가
-
----
-*Powered by Claude Code*`;
+          
+          ### 📊 분석 완료  
+          - **보안 취약점**: ${criticalCount}개 발견
+          - **상세 결과**: [Actions 로그](../../actions) 확인
+          
+          ### 🚨 주요 발견사항
+          ${reviewContent.includes('🔴 CRITICAL') ? 
+            (reviewContent.split('🔴 CRITICAL')[1] || '').substring(0, 500) + '...' : 
+            '세부 내용은 Actions 로그에서 확인하세요'}
+          
+          ### 🛡️ 권장사항
+          1. 하드코딩된 크리덴셜 즉시 제거
+          2. SQL 인젝션 취약점 수정  
+          3. 입력 검증 로직 추가
+          
+          ---
+          *Powered by Claude Code*`;
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -130,11 +131,11 @@ ${reviewContent.includes('🔴 CRITICAL') ?
               owner: context.repo.owner,  
               repo: context.repo.repo,
               body: `## 🤖 Claude Code Review
-
-✅ **리뷰 완료**
-
-상세 결과는 [Actions 로그](../../actions)에서 확인하세요.
-
-Error: ${error.message}`
+          
+          ✅ **리뷰 완료**
+          
+          상세 결과는 [Actions 로그](../../actions)에서 확인하세요.
+          
+          Error: ${error.message}`
             });
           }
