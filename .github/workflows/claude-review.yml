@@ -87,27 +87,38 @@ jobs:
           const fs = require('fs');
           
           try {
-            const reviewContent = fs.readFileSync('review.txt', 'utf8');
+            let reviewContent = '';
+            try {
+              reviewContent = fs.readFileSync('review.txt', 'utf8');
+            } catch (e) {
+              reviewContent = 'Review file not found or empty';
+            }
+            
+            console.log('Review content length:', reviewContent.length);
+            console.log('Review content preview:', reviewContent.substring(0, 200));
             
             // API 키/크레딧 문제 체크
             const hasApiIssue = reviewContent.includes('API key not set') ||
                                reviewContent.includes('authentication failed') ||
                                reviewContent.includes('insufficient credits') ||
-                               reviewContent.length < 50; // 너무 짧은 응답은 에러로 간주
+                               reviewContent.includes('command not found') ||
+                               reviewContent.length < 10;
                                
             if (hasApiIssue) {
-              const comment = `## 🤖 Claude Code Review
+              const errorComment = `## 🤖 Claude Code Review
           
-          ❌ **API 키 또는 크레딧 문제**
+          ❌ **설정 또는 실행 문제 발생**
           
           \`\`\`
-          ${reviewContent.substring(0, 300)}
+          ${reviewContent.substring(0, 500)}
           \`\`\`
           
-          **해결 방법:**
-          1. **API 키 설정**: Repository → Settings → Secrets → Actions
-          2. **크레딧 확인**: [console.anthropic.com](https://console.anthropic.com)에서 잔액 확인  
-          3. **테스트**: 설정 후 PR 재실행
+          **가능한 원인:**
+          1. **API 키 미설정**: Repository → Settings → Secrets → Actions에서 ANTHROPIC_API_KEY 확인
+          2. **Claude CLI 설치 문제**: npm 패키지 설치 오류
+          3. **크레딧 부족**: [console.anthropic.com](https://console.anthropic.com)에서 잔액 확인
+          
+          **해결 후**: PR 재실행 또는 새 커밋 푸시
           
           ---
           *Powered by Claude Code*`;
@@ -116,70 +127,49 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: comment
+                body: errorComment
               });
               return;
             }
             
-            // 실제 리뷰 내용 파싱
-            const lines = reviewContent.split('\n');
-            const criticalIssues = reviewContent.match(/❌.*|BLOCKING.*|CRITICAL.*|HIGH RISK/gi) || [];
-            const securityIssues = reviewContent.match(/Hard-coded.*|SQL injection.*|security.*vulnerability/gi) || [];
+            // 한국어 패턴 확인
+            const hasKorean = reviewContent.includes('🚨') || 
+                            reviewContent.includes('⚠️') ||
+                            reviewContent.includes('💡') ||
+                            /[가-힣]/.test(reviewContent);
             
-            // 리뷰 내용 요약 추출
-            let summary = '';
-            let recommendations = '';
-            let securityRating = '';
+            // 리뷰 결과 분석
+            const criticalIssues = (reviewContent.match(/🚨|CRITICAL|심각한/gi) || []).length;
+            const securityIssues = (reviewContent.match(/보안|security|SQL injection|하드코딩/gi) || []).length;
             
-            // Summary 섹션 추출
-            const summaryMatch = reviewContent.match(/### 📋 Summary of Changes([\s\S]*?)###/);
-            if (summaryMatch) {
-              summary = summaryMatch[1].trim().substring(0, 400) + '...';
+            // 전체 리뷰가 너무 길면 축약 (GitHub 댓글 제한 고려)
+            let displayReview = reviewContent;
+            if (reviewContent.length > 2000) {
+              displayReview = reviewContent.substring(0, 2000) + '\n\n... (전체 내용은 Actions 로그에서 확인하세요)';
             }
             
-            // Security Rating 추출  
-            const ratingMatch = reviewContent.match(/Security Rating: (.+)/);
-            if (ratingMatch) {
-              securityRating = ratingMatch[1];
-            }
-            
-            // 주요 이슈들 추출
-            const criticalSection = reviewContent.match(/🚨.*Critical.*|❌.*BLOCKING.*|Critical Security Concerns([\s\S]*?)(?=###|$)/i);
-            let mainIssues = '';
-            if (criticalSection) {
-              mainIssues = criticalSection[0].substring(0, 600) + '...';
-            }
-            
-            // 전체 리뷰가 너무 길면 축약
-            let fullReview = reviewContent;
-            if (reviewContent.length > 1500) {
-              fullReview = reviewContent.substring(0, 1500) + '\n\n... (전체 내용은 Actions 로그에서 확인)';
-            }
-            
-            const comment = `## 🤖 Claude Code Review
+            const successComment = `## 🤖 Claude Code Review
           
           ### 📊 분석 결과
-          - **심각한 이슈**: ${criticalIssues.length}개 발견
-          - **보안 문제**: ${securityIssues.length}개 발견
-          - **보안 등급**: ${securityRating || '평가 중'}
+          - **언어**: ${hasKorean ? '한국어 ✅' : '영어 (한국어 변환 필요)'}
+          - **심각한 이슈**: ${criticalIssues}개 감지
+          - **보안 관련**: ${securityIssues}개 항목
           
           ### 🔍 상세 리뷰 결과
           
           <details>
-          <summary><strong>📋 전체 리뷰 내용 보기</strong></summary>
+          <summary><strong>📋 전체 리뷰 내용 보기 (클릭)</strong></summary>
           
           \`\`\`
-          ${fullReview}
+          ${displayReview}
           \`\`\`
           
           </details>
           
-          ${mainIssues ? `### 🚨 주요 발견사항\n${mainIssues}` : ''}
-          
           ### 📋 다음 단계
-          1. **상세 결과**: [GitHub Actions 로그](../../../actions) 확인
-          2. **보안 이슈**: 즉시 수정 필요
-          3. **코드 리뷰**: 팀 검토 후 머지 결정
+          1. **상세 로그**: [GitHub Actions 실행 결과](../../actions) 확인
+          2. **이슈 수정**: 발견된 문제점들 개선
+          3. **재검토**: 수정 후 새 커밋으로 재검증
           
           ---
           *Auto-generated by Claude Code Review*`;
@@ -188,38 +178,35 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: comment
+              body: successComment
             });
             
           } catch (error) {
-            console.error('Error creating comment:', error);
+            console.error('Error in comment creation:', error);
             
-            // 에러 발생 시 원본 리뷰 내용이라도 보여주기
-            let fallbackContent = 'Failed to read review content';
-            try {
-              fallbackContent = fs.readFileSync('review.txt', 'utf8').substring(0, 1000);
-            } catch (e) {
-              fallbackContent = 'Review file not found';
-            }
+            // 최후의 fallback
+            const fallbackComment = `## 🤖 Claude Code Review
+          
+          ⚠️ **댓글 생성 중 오류 발생**
+          
+          **Error**: ${error.message || 'Unknown error'}
+          
+          **디버그 정보**:
+          - Error type: ${typeof error}
+          - Stack: ${error.stack ? error.stack.substring(0, 300) : 'No stack trace'}
+          
+          **해결 방법**:
+          1. [GitHub Actions 로그](../../actions)에서 전체 리뷰 내용 확인
+          2. 워크플로우 재실행
+          3. 이슈 지속 시 리포지토리 관리자에게 문의
+          
+          ---
+          *Claude Code Review Debug*`;
             
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,  
               repo: context.repo.repo,
-              body: `## 🤖 Claude Code Review
-          
-          ⚠️ **댓글 생성 중 오류 발생**
-          
-          **Error**: ${error.message}
-          
-          **Raw Review Content**:
-          \`\`\`
-          ${fallbackContent}
-          \`\`\`
-          
-          [전체 로그 확인](../../../actions)
-          
-          ---
-          *Claude Code Review*`
+              body: fallbackComment
             });
           }
