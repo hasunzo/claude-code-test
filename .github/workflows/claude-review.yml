@@ -30,6 +30,7 @@ jobs:
     - name: Run Claude Review
       env:
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        CLAUDE_LANGUAGE: ko-KR
       run: |
         echo "🔍 Starting Claude Code Review..."
         
@@ -39,8 +40,8 @@ jobs:
         else
           echo "✅ API 키가 설정되었습니다."
           
-          echo "실행중: claude review-pr"
-          claude review-pr > review.txt 2>&1 || echo "Review completed with status: $?"
+          echo "실행중: claude review-pr (한국어 모드)"
+          claude review-pr --output-language korean > review.txt 2>&1 || echo "Review completed with status: $?"
           
           echo "=== Review Output ==="
           cat review.txt

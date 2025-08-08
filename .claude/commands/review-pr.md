@@ -41,37 +41,39 @@ git status --porcelain         # working directory changes
 - Error handling patterns
 - SOLID principles adherence
 
-## 📤 Output Format
+## 📤 Output Format (한국어 응답 필수)
+
+**중요: 모든 분석 결과는 반드시 한국어로 작성해주세요.**
 
 ### Structure
 ```
-🚨 CRITICAL Issues (if any)
-⚠️ HIGH Priority Issues (if any)
-💡 Suggestions for Improvement
-📋 Action Items
-✅ Positive Observations
+🚨 CRITICAL Issues (심각한 문제가 있는 경우)
+⚠️ HIGH Priority Issues (높은 우선순위 문제가 있는 경우)  
+💡 Suggestions for Improvement (개선 제안사항)
+📋 Action Items (실행해야 할 항목들)
+✅ Positive Observations (긍정적인 관찰사항)
 ```
 
-### Example Output
+### Example Output (한국어 예시)
 ```
-🚨 CRITICAL
+🚨 CRITICAL (심각한 문제)
 - [UserController.kt:15] 직접 Repository 의존성 주입 - 아키텍처 위반
 - [AuthService.kt:23] 평문 비밀번호 저장 - 보안 취약점
 
-⚠️ HIGH  
-- [CreateUserUseCase.kt:12] 예외 처리 누락
+⚠️ HIGH (높은 우선순위)
+- [CreateUserUseCase.kt:12] 예외 처리 누락  
 - [UserDto.kt:8] 검증 어노테이션 부재
 
-💡 SUGGESTIONS
+💡 SUGGESTIONS (개선 제안)
 - [User.kt:5] 값 객체(Value Object) 패턴 적용 고려
 - [UserService.kt] 메서드 분리로 단일 책임 원칙 강화
 
-📋 ACTION ITEMS
+📋 ACTION ITEMS (실행 항목)
 1. UserController에서 UserFacade 통해 UseCase 호출하도록 수정
-2. 비밀번호 해싱 로직 추가 (BCrypt 사용 권장)
+2. 비밀번호 해싱 로직 추가 (BCrypt 사용 권장)  
 3. CreateUserRequest에 @Valid 어노테이션 추가
 
-✅ POSITIVE
+✅ POSITIVE (긍정적 측면)
 - Clean한 도메인 모델 설계
 - 적절한 패키지 구조 사용
 ```
