@@ -5,19 +5,21 @@ on:
     types: [opened, synchronize]
     branches: [main]
 
-# GitHub Actions에 PR 댓글 권한 부여
 permissions:
   contents: read
-  pull-requests: write
   issues: write
+  pull-requests: write
+  actions: read
 
 jobs:
   claude-review:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -33,93 +35,80 @@ jobs:
       run: |
         echo "🔍 Starting Claude Code Review..."
         
-        # API 키 확인
+        # API 키와 크레딧 확인
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "❌ ANTHROPIC_API_KEY가 설정되지 않았습니다."
-          echo "Invalid API key - not set" > review.txt
-          echo "Invalid API key - not set" > security.txt
+          echo "API key not set" > review.txt
+          echo "API key not set" > security.txt
         else
           echo "✅ API 키가 설정되었습니다."
           
-          # Claude Code 실행
-          claude review-pr > review.txt 2>&1 || echo "Review completed with warnings"
-          claude check-security > security.txt 2>&1 || echo "Security check completed"
+          # Claude Code 실행 (더 상세한 에러 로깅)
+          echo "실행중: claude review-pr"
+          claude review-pr > review.txt 2>&1 || echo "Review completed with status: $?"
+          
+          echo "실행중: claude check-security" 
+          claude check-security > security.txt 2>&1 || echo "Security check completed with status: $?"
+          
+          # 결과 파일 확인
+          echo "=== Review Output ==="
+          cat review.txt
+          echo "=== Security Output ==="
+          cat security.txt
         fi
         
-    - name: Comment PR
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          
-          try {
-            const review = fs.readFileSync('review.txt', 'utf8');
-            const security = fs.readFileSync('security.txt', 'utf8');
-            
-            // API 키 문제 체크
-            if (review.includes('Invalid API key') || security.includes('Invalid API key')) {
-              const comment = `## 🤖 Claude Code Review
-              
-              ❌ **API 키 설정 필요**
-              
-              GitHub Secrets에 \`ANTHROPIC_API_KEY\`를 설정해주세요:
-              1. Repository → Settings → Secrets and variables → Actions
-              2. New repository secret 클릭
-              3. Name: \`ANTHROPIC_API_KEY\`
-              4. Secret: your-anthropic-api-key
-              
-              설정 후 PR을 다시 push하거나 Re-run jobs를 클릭해주세요.`;
-              
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-              return;
-            }
-            
-            // 정상 리뷰 결과 댓글
-            const comment = `## 🤖 Claude Code Review
-            
-            ### 📊 PR Review
-            \`\`\`
-            ${review.slice(0, 1500)}${review.length > 1500 ? '\n...(truncated)' : ''}
-            \`\`\`
-            
-            ### 🛡️ Security Check
-            \`\`\`  
-            ${security.slice(0, 1500)}${security.length > 1500 ? '\n...(truncated)' : ''}
-            \`\`\`
-            
-            ### 📋 Summary
-            - 🔍 **PR Review**: ${review.includes('🚨') ? '❌ Issues Found' : '✅ Looks Good'}
-            - 🛡️ **Security**: ${security.includes('Critical') ? '❌ Vulnerabilities' : '✅ No Issues'}
-            
-            ---
-            *Powered by Claude Code & DDD+Hexagonal Architecture Rules*`;
-            
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-            
-          } catch (error) {
-            console.error('Error:', error);
-            
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🤖 Claude Code Review
-              
-              ❌ 리뷰 실행 중 오류가 발생했습니다.
-              
-              Error: \`${error.message}\`
-              
-              [Actions 로그](../../actions)에서 자세한 내용을 확인해주세요.`
-            });
-          }
+    - name: Create PR Comment
+      if: always()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ github.event.number }}
+      run: |
+        # GitHub API를 직접 사용해서 댓글 생성
+        REVIEW_CONTENT=$(cat review.txt 2>/dev/null || echo "Review file not found")
+        SECURITY_CONTENT=$(cat security.txt 2>/dev/null || echo "Security file not found")
+        
+        # API 키/크레딧 문제 체크
+        if echo "$REVIEW_CONTENT" | grep -qi "credit.*low\|invalid.*key\|api.*key.*not.*set"; then
+          COMMENT_BODY="## 🤖 Claude Code Review
+
+❌ **API 키 또는 크레딧 문제**
+
+현재 상태: \`$(echo "$REVIEW_CONTENT" | head -1)\`
+
+해결 방법:
+1. **API 키 설정**: Repository → Settings → Secrets → Actions
+   - Name: \`ANTHROPIC_API_KEY\`
+   - Value: your-anthropic-api-key
+
+2. **크레딧 확인**: console.anthropic.com에서 잔액 확인
+   - 신규 계정: \$5 무료 크레딧
+   - 기존 계정: 크레딧 충전 필요
+
+3. **테스트**: 설정 후 PR 재실행
+
+---
+*Powered by Claude Code*"
+        else
+          COMMENT_BODY="## 🤖 Claude Code Review
+
+### 📊 PR Review
+\`\`\`
+$(echo "$REVIEW_CONTENT" | head -50)
+\`\`\`
+
+### 🛡️ Security Check  
+\`\`\`
+$(echo "$SECURITY_CONTENT" | head -50)
+\`\`\`
+
+---
+*Powered by Claude Code & DDD+Hexagonal Architecture Rules*"
+        fi
+        
+        # GitHub API로 댓글 생성
+        curl -X POST \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
+          -d "{\"body\": $(echo "$COMMENT_BODY" | jq -Rs .)}" \
+          || echo "Comment creation failed"
