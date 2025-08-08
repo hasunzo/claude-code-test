@@ -36,20 +36,14 @@ jobs:
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           echo "❌ ANTHROPIC_API_KEY가 설정되지 않았습니다."
           echo "API key not set" > review.txt
-          echo "API key not set" > security.txt
         else
           echo "✅ API 키가 설정되었습니다."
           
           echo "실행중: claude review-pr"
           claude review-pr > review.txt 2>&1 || echo "Review completed with status: $?"
           
-          echo "실행중: claude check-security" 
-          claude check-security > security.txt 2>&1 || echo "Security check completed with status: $?"
-          
           echo "=== Review Output ==="
           cat review.txt
-          echo "=== Security Output ==="
-          cat security.txt
         fi
         
     - name: Create PR Comment
@@ -62,7 +56,6 @@ jobs:
           
           try {
             const reviewContent = fs.readFileSync('review.txt', 'utf8');
-            const securityContent = fs.readFileSync('security.txt', 'utf8');
             
             // API 키/크레딧 문제 체크
             const hasApiIssue = reviewContent.includes('API key not set') ||
