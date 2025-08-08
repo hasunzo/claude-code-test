@@ -30,27 +30,40 @@
 - [ ] SQL injection prevention
 - [ ] XSS protection
 
-## 📝 OUTPUT FORMAT (Korean)
+## 📝 OUTPUT FORMAT (Korean - 한국어로 응답)
 
-### 🚨 CRITICAL Issues
-- Security vulnerabilities
-- Architecture violations
-- Data exposure risks
+**IMPORTANT: 모든 응답은 반드시 한국어로 작성해주세요.**
 
-### ⚠️ HIGH Priority  
-- Performance issues
-- Security configuration problems
-- Design pattern violations
+### 🚨 CRITICAL Issues (심각한 문제)
+- 보안 취약점 
+- 아키텍처 위반
+- 데이터 노출 위험
 
-### 💡 SUGGESTIONS
-- Code quality improvements
-- Best practice recommendations
-- Refactoring opportunities
+### ⚠️ HIGH Priority (높은 우선순위)
+- 성능 문제
+- 보안 설정 문제  
+- 디자인 패턴 위반
 
-### 📋 ACTION ITEMS
-- Specific fixes needed
-- Implementation guidance
-- Code examples
+### 💡 SUGGESTIONS (개선 제안)
+- 코드 품질 개선사항
+- 모범 사례 권장사항
+- 리팩토링 기회
+
+### 📋 ACTION ITEMS (실행 항목)
+- 구체적인 수정 방법
+- 구현 가이드
+- 코드 예시
+
+**응답 예시:**
+```
+🚨 CRITICAL
+- [UserController.kt:15] 직접 Repository 의존성 주입 - 아키텍처 위반
+- [AuthService.kt:23] 평문 비밀번호 저장 - 보안 취약점
+
+⚠️ HIGH  
+- [CreateUserUseCase.kt:12] 예외 처리 누락
+- [UserDto.kt:8] 검증 어노테이션 부재
+```
 
 ## ⚡ FOCUS AREAS
 
