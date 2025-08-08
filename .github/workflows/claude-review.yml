@@ -40,8 +40,24 @@ jobs:
         else
           echo "✅ API 키가 설정되었습니다."
           
-          echo "실행중: claude review-pr (한국어 모드)"
-          claude review-pr --output-language korean > review.txt 2>&1 || echo "Review completed with status: $?"
+          # .claude 명령어 규칙 읽기
+          if [ -f ".claude/commands/review-pr.md" ]; then
+            echo "📋 .claude 명령어 규칙 발견, 한국어 리뷰 모드로 실행"
+            echo "다음 파일들을 DDD+Hexagonal Architecture 기준으로 한국어로 리뷰해주세요:" > prompt.txt
+            echo "" >> prompt.txt
+            cat .claude/commands/review-pr.md >> prompt.txt
+            echo "" >> prompt.txt
+            echo "=== 변경된 파일들 ===" >> prompt.txt
+            git diff --name-only HEAD~1 >> prompt.txt
+            echo "" >> prompt.txt
+            echo "=== 변경 내용 ===" >> prompt.txt
+            git diff HEAD~1 >> prompt.txt
+            
+            claude --prompt-file prompt.txt > review.txt 2>&1 || echo "Review completed with status: $?"
+          else
+            echo "실행중: claude review-pr (한국어 모드)"
+            claude review-pr --output-language korean > review.txt 2>&1 || echo "Review completed with status: $?"
+          fi
           
           echo "=== Review Output ==="
           cat review.txt
