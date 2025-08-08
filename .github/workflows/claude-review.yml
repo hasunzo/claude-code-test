@@ -1,0 +1,56 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install Claude Code
+      run: npm install -g @anthropic-ai/claude-code
+        
+    - name: Run Claude Review
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      run: |
+        claude review-pr > review.txt
+        claude check-security > security.txt
+        
+    - name: Comment PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const review = fs.readFileSync('review.txt', 'utf8');
+          const security = fs.readFileSync('security.txt', 'utf8');
+          
+          const comment = `## 🤖 Claude Code Review
+          
+          ### 📊 PR Review
+          \`\`\`
+          ${review.slice(0, 1500)}
+          \`\`\`
+          
+          ### 🛡️ Security Check
+          \`\`\`  
+          ${security.slice(0, 1500)}
+          \`\`\``;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
