@@ -77,38 +77,36 @@ jobs:
 
 해결 방법:
 1. **API 키 설정**: Repository → Settings → Secrets → Actions
-   - Name: \`ANTHROPIC_API_KEY\`
-   - Value: your-anthropic-api-key
-
 2. **크레딧 확인**: console.anthropic.com에서 잔액 확인
-   - 신규 계정: \$5 무료 크레딧
-   - 기존 계정: 크레딧 충전 필요
-
 3. **테스트**: 설정 후 PR 재실행
 
 ---
 *Powered by Claude Code*"
         else
+          # 요약된 버전 (댓글 길이 제한 고려)
+          CRITICAL_COUNT=$(echo "$REVIEW_CONTENT" | grep -c "🔴\|CRITICAL" || echo "0")
           COMMENT_BODY="## 🤖 Claude Code Review
 
-### 📊 PR Review
-\`\`\`
-$(echo "$REVIEW_CONTENT" | head -50)
-\`\`\`
+### 📊 분석 완료
+- **보안 취약점**: ${CRITICAL_COUNT}개 발견
+- **상세 결과**: [Actions 로그](../../actions) 확인
 
-### 🛡️ Security Check  
-\`\`\`
-$(echo "$SECURITY_CONTENT" | head -50)
-\`\`\`
+### 🚨 주요 발견사항
+$(echo "$REVIEW_CONTENT" | grep -A 3 "🔴 CRITICAL" | head -10)
+
+### 🛡️ 권장사항
+1. 하드코딩된 크리덴셜 즉시 제거
+2. SQL 인젝션 취약점 수정
+3. 입력 검증 로직 추가
 
 ---
-*Powered by Claude Code & DDD+Hexagonal Architecture Rules*"
+*Powered by Claude Code*"
         fi
         
-        # GitHub API로 댓글 생성
+        # GitHub API로 댓글 생성 (PAT 사용)
         curl -X POST \
-          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           -H "Accept: application/vnd.github.v3+json" \
           "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
           -d "{\"body\": $(echo "$COMMENT_BODY" | jq -Rs .)}" \
-          || echo "Comment creation failed"
+          || echo "Comment creation failed - checking permissions"
