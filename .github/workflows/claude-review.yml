@@ -49,11 +49,26 @@ jobs:
               echo "변경된 파일들: $CHANGED_FILES"
           
               # 한국어 리뷰 명령어 실행 (.claude 커스텀 명령어 사용)
-              echo "실행중: /review-pr (한국어 설정)"
-              CLAUDE_LANGUAGE=ko claude --execute "/review-pr" > review.txt 2>&1 || {
-                echo "단축 명령어 실패, 풀 명령어로 재시도..."
-                CLAUDE_LANGUAGE=ko claude --execute "/project:review-pr" > review.txt 2>&1 || echo "Review completed with status: $?"
-              }
+              echo "실행중: 커스텀 리뷰 명령어"
+          
+              # 디버깅: 파일 존재 확인
+              ls -la .claude/commands/
+              echo "=== review-pr.md 내용 확인 ==="
+              cat .claude/commands/review-pr.md
+              echo "========================="
+          
+              # 여러 방법으로 시도
+              if CLAUDE_LANGUAGE=ko claude --execute "/project:review-pr" > review.txt 2>&1; then
+                echo "✅ /project:review-pr 성공"
+              elif echo "/project:review-pr" | CLAUDE_LANGUAGE=ko claude > review.txt 2>&1; then
+                echo "✅ 파이프 방식 성공"
+              elif CLAUDE_LANGUAGE=ko claude "/project:review-pr" > review.txt 2>&1; then
+                echo "✅ 인수 방식 성공"
+              else
+                echo "❌ 모든 커스텀 명령어 실패, 기본 리뷰로 전환"
+                # 변경된 파일 목록을 포함한 기본 리뷰
+                CLAUDE_LANGUAGE=ko claude "다음 파일들의 변경사항을 리뷰해주세요. 한국어로 응답해주세요: $CHANGED_FILES" > review.txt 2>&1
+              fi
           
               # 리뷰 결과에 .claude 규칙 준수 여부 확인 후 한국어로 재포맷
               if grep -q "English" review.txt || ! grep -q "한국어\|Korean\|🚨\|⚠️\|💡" review.txt; then
