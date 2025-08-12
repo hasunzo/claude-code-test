@@ -27,15 +27,20 @@ Analyze current branch changes and generate Korean PR title and description auto
 1. PR이 성공적으로 생성되었는지 확인
 2. PR 번호 추출
 
-#### 4.2 코드 리뷰 실행 (GitHub CLI 또는 수동 분석)
-**주의**: Custom GitHub Enterprise 환경에서는 MCP GitHub 도구 대신 다음 방법 사용:
+#### 4.2 코드 리뷰 실행 (자동화 스크립트 사용)
 
-**방법 1: GitHub CLI 사용**
+**방법 1: 자동 라인별 리뷰 스크립트 (권장)**
+```bash
+# 라인별 자동 코드 리뷰 실행
+./.github/scripts/line-by-line-review.sh {PR번호}
+```
+
+**방법 2: GitHub CLI 수동 리뷰**
 1. `gh pr view {PR번호} --json files` - 변경된 파일 목록 확인
 2. `gh pr diff {PR번호}` - 변경사항 확인
 3. 수동으로 코드 분석 후 리뷰 작성
 
-**방법 2: MCP GitHub 도구 (가능한 경우)**
+**방법 3: MCP GitHub 도구 (Enterprise 환경)**
 1. `get_pull_request_files`로 변경된 파일 목록 확인
 2. `create_pending_pull_request_review` 생성
 3. `add_comment_to_pending_review`로 각 이슈별 코멘트 추가
@@ -62,44 +67,7 @@ Analyze current branch changes and generate Korean PR title and description auto
 - 신규 파일과 수정된 파일 구분
 - 변경된 라인과 메서드만 집중 분석
 
-#### 4.6 규칙 기반 검토
-
-##### Architecture 규칙 검토 (`.claude/rules/architecture/`)
-- **package_structure_rules.md**: 패키지 구조 및 모듈 의존성 검증
-    - 모듈별 계층 구조 준수 확인
-    - DTO 위치 규칙 검증
-    - Common 모듈 사용 규칙 확인
-    - 안티패턴 탐지
-
-##### Code 규칙 검토 (`.claude/rules/code/`)
-- **naming_rules.md**: 명명 규칙 검증
-    - 클래스, 메서드, 변수 명명 규칙
-    - 패키지 명명 규칙
-    - 테스트 명명 규칙
-
-- **kotlin_rules.md**: Kotlin 코딩 컨벤션
-    - Kotlin 스타일 가이드 준수
-    - 관용적 Kotlin 사용
-    - 불변성 및 Null 안전성
-
-- **validation_rules.md**: 검증 로직 규칙
-    - 입력 검증 패턴
-    - 비즈니스 규칙 검증
-    - 에러 처리 패턴
-
-##### Testing 규칙 검토 (`.claude/rules/testing/`)
-- **unit-test-rules.md**: 단위 테스트 작성 규칙
-    - 테스트 구조 및 패턴
-    - MockK 사용 규칙
-    - 테스트 명명 규칙
-
-#### 4.3 보안 및 성능 검토
-- SQL Injection, XSS 등 보안 취약점
-- N+1 쿼리, 메모리 누수 등 성능 이슈
-- 인증/인가 로직 검증
-- 데이터 무결성 확인
-
-#### 4.4 리뷰 출력 형식 (한국어)
+#### 4.6 리뷰 출력 형식 (한국어)
 
 ```
 ## 규칙 준수 검토

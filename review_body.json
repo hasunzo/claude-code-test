@@ -1,0 +1,12 @@
+{
+  "commit_id": "0fdedb98dd60f017e965cc5e973c0fe58bede84d",
+  "body": "## 🤖 라인별 코드 리뷰\n\n각 변경사항에 대한 구체적인 피드백을 제공합니다.",
+  "event": "COMMENT",
+  "comments": [
+    {
+      "path": ".claude/commands/create-pr.md",
+      "position": 6,
+      "body": "💡 **개선 제안**: PR 생성 실패 시 롤백 전략을 추가하면 좋겠습니다.\n\n```markdown\n# 실패 시 처리\n- 브랜치 상태 확인\n- 이전 커밋으로 롤백 옵션\n```"
+    }
+  ]
+}
