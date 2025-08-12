@@ -14,128 +14,94 @@ jobs:
   claude-review:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        
-    - name: Install Claude Code
-      run: npm install -g @anthropic-ai/claude-code
-        
-    - name: Run Claude Review
-      env:
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      run: |
-        echo "🔍 Starting Claude Code Review..."
-        
-        if [ -z "$ANTHROPIC_API_KEY" ]; then
-          echo "❌ ANTHROPIC_API_KEY가 설정되지 않았습니다."
-          echo "API key not set" > review.txt
-          echo "API key not set" > security.txt
-        else
-          echo "✅ API 키가 설정되었습니다."
-          
-          echo "실행중: claude review-pr"
-          claude review-pr > review.txt 2>&1 || echo "Review completed with status: $?"
-          
-          echo "실행중: claude check-security" 
-          claude check-security > security.txt 2>&1 || echo "Security check completed with status: $?"
-          
-          echo "=== Review Output ==="
-          cat review.txt
-          echo "=== Security Output ==="
-          cat security.txt
-        fi
-        
-    - name: Create PR Comment
-      if: always()
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          
-          try {
-            const reviewContent = fs.readFileSync('review.txt', 'utf8');
-            const securityContent = fs.readFileSync('security.txt', 'utf8');
-            
-            // API 키/크레딧 문제 체크
-            const hasApiIssue = reviewContent.includes('API key not set') ||
-                               reviewContent.includes('invalid') ||
-                               (reviewContent.includes('credit') && reviewContent.includes('low'));
-                               
-            if (hasApiIssue) {
-              const comment = `## 🤖 Claude Code Review
-          
-          ❌ **API 키 또는 크레딧 문제**
-          
-          현재 상태: \`${reviewContent.split('\n')[0]}\`
-          
-          해결 방법:
-          1. **API 키 설정**: Repository → Settings → Secrets → Actions
-          2. **크레딧 확인**: console.anthropic.com에서 잔액 확인  
-          3. **테스트**: 설정 후 PR 재실행
-          
-          ---
-          *Powered by Claude Code*`;
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-              return;
-            }
-            
-            // 정상 리뷰 결과
-            const criticalCount = (reviewContent.match(/🔴|CRITICAL/g) || []).length;
-            
-            const comment = `## 🤖 Claude Code Review
-          
-          ### 📊 분석 완료  
-          - **보안 취약점**: ${criticalCount}개 발견
-          - **상세 결과**: [Actions 로그](../../actions) 확인
-          
-          ### 🚨 주요 발견사항
-          ${reviewContent.includes('🔴 CRITICAL') ? 
-            (reviewContent.split('🔴 CRITICAL')[1] || '').substring(0, 500) + '...' : 
-            '세부 내용은 Actions 로그에서 확인하세요'}
-          
-          ### 🛡️ 권장사항
-          1. 하드코딩된 크리덴셜 즉시 제거
-          2. SQL 인젝션 취약점 수정  
-          3. 입력 검증 로직 추가
-          
-          ---
-          *Powered by Claude Code*`;
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-            
-          } catch (error) {
-            console.error('Error creating comment:', error);
-            
-            // 최소한의 댓글이라도 달기
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,  
-              repo: context.repo.repo,
-              body: `## 🤖 Claude Code Review
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Claude Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_LANGUAGE: ko-KR
+        run: |
+          echo "🔍 Starting Claude Code Review..."
           
-          ✅ **리뷰 완료**
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "❌ ANTHROPIC_API_KEY가 설정되지 않았습니다."
+            echo "API key not set" > review.txt
+          else
+            echo "✅ API 키가 설정되었습니다."
           
-          상세 결과는 [Actions 로그](../../actions)에서 확인하세요.
+            # .claude 명령어 규칙 읽기
+            if [ -f ".claude/commands/review-pr.md" ]; then
+              echo "📋 .claude 명령어 규칙 발견, 한국어 리뷰 모드로 실행"
           
-          Error: ${error.message}`
-            });
-          }
+              # 변경된 파일들 확인
+              CHANGED_FILES=$(git diff --name-only HEAD~1)
+              echo "변경된 파일들: $CHANGED_FILES"
+          
+              # 한국어 리뷰 명령어 실행 (.claude 커스텀 명령어 사용)
+              echo "실행중: 커스텀 리뷰 명령어"
+          
+              # 디버깅: 파일 존재 확인
+              ls -la .claude/commands/
+              echo "=== review-pr.md 내용 확인 ==="
+              cat .claude/commands/review-pr.md
+              echo "========================="
+          
+              # 여러 방법으로 시도
+              if CLAUDE_LANGUAGE=ko claude --execute "/project:review-pr" > review.txt 2>&1; then
+                echo "✅ /project:review-pr 성공"
+              elif echo "/project:review-pr" | CLAUDE_LANGUAGE=ko claude > review.txt 2>&1; then
+                echo "✅ 파이프 방식 성공"
+              elif CLAUDE_LANGUAGE=ko claude "/project:review-pr" > review.txt 2>&1; then
+                echo "✅ 인수 방식 성공"
+              else
+                echo "❌ 모든 커스텀 명령어 실패, 기본 리뷰로 전환"
+                # 변경된 파일 목록을 포함한 기본 리뷰
+                CLAUDE_LANGUAGE=ko claude "다음 파일들의 변경사항을 리뷰해주세요. 한국어로 응답해주세요: $CHANGED_FILES" > review.txt 2>&1
+              fi
+          
+              # 리뷰 결과에 .claude 규칙 준수 여부 확인 후 한국어로 재포맷
+              if grep -q "English" review.txt || ! grep -q "한국어\|Korean\|🚨\|⚠️\|💡" review.txt; then
+                echo "영어 응답 감지, 한국어로 재처리 중..."
+                echo "다음은 PR 리뷰 결과입니다. .claude/commands/review-pr.md 규칙에 따라 한국어로 응답해주세요:" > korean_prompt.txt
+                echo "" >> korean_prompt.txt
+                echo "=== .claude 리뷰 규칙 ===" >> korean_prompt.txt  
+                cat .claude/commands/review-pr.md >> korean_prompt.txt
+                echo "" >> korean_prompt.txt
+                echo "=== 기존 리뷰 결과 ===" >> korean_prompt.txt
+                cat review.txt >> korean_prompt.txt
+                echo "" >> korean_prompt.txt
+                echo "=== 변경된 파일들 ===" >> korean_prompt.txt
+                echo "$CHANGED_FILES" >> korean_prompt.txt
+          
+                # 표준 claude 명령어로 재처리
+                claude "$(cat korean_prompt.txt)" > review_korean.txt 2>&1 && mv review_korean.txt review.txt
+              fi
+            else
+              echo "기본 리뷰 모드로 실행 (커스텀 명령어 없음)"
+              echo "실행중: claude --execute \"리뷰해주세요\""
+              claude --execute "이 PR의 변경사항을 리뷰해주세요" > review.txt 2>&1 || echo "Review completed with status: $?"
+            fi
+          
+            echo "=== Review Output ==="
+            cat review.txt
+          fi
+
+      - name: Create PR Comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const createPRComment = require('./.github/scripts/create-pr-comment.js');
+            await createPRComment(github, context);
